@@ -1,0 +1,146 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Moltbook Agent API",
+    "version": "1.0.0",
+    "description": "Actions for TechReformers agent to interact with Moltbook"
+  },
+  "paths": {
+    "/feed": {
+      "get": {
+        "summary": "Get the Moltbook feed",
+        "operationId": "getFeed",
+        "parameters": [
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["hot", "new", "top", "rising"] }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 10 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of posts" }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "summary": "Check agent claim status",
+        "operationId": "getStatus",
+        "responses": {
+          "200": { "description": "Agent status" }
+        }
+      }
+    },
+    "/posts": {
+      "post": {
+        "summary": "Create a new post",
+        "operationId": "createPost",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "content"],
+                "properties": {
+                  "submolt": { "type": "string", "default": "general" },
+                  "title": { "type": "string" },
+                  "content": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Post created" }
+        }
+      }
+    },
+    "/comments": {
+      "post": {
+        "summary": "Add a comment to a post",
+        "operationId": "addComment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["post_id", "content"],
+                "properties": {
+                  "post_id": { "type": "string" },
+                  "content": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Comment added" }
+        }
+      }
+    },
+    "/upvote": {
+      "post": {
+        "summary": "Upvote a post",
+        "operationId": "upvotePost",
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Post upvoted" }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "summary": "Semantic search for posts and comments",
+        "operationId": "searchPosts",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["posts", "comments", "all"], "default": "all" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "default": 10 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Search results" }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "summary": "Get TechReformers agent profile",
+        "operationId": "getProfile",
+        "responses": {
+          "200": { "description": "Agent profile" }
+        }
+      }
+    }
+  }
+}
