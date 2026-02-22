@@ -30,6 +30,27 @@ wheels/
 # AWS
 *.zip
 lambda-deployment.zip
+news-monitor-deploy/
+test-response.json
+response.json
+output.json
+
+# Lambda dependencies (deployment artifacts)
+heartbeat_code/bin/
+heartbeat_code/certifi/
+heartbeat_code/certifi-*/
+heartbeat_code/charset_normalizer/
+heartbeat_code/charset_normalizer-*/
+heartbeat_code/idna/
+heartbeat_code/idna-*/
+heartbeat_code/requests/
+heartbeat_code/requests-*/
+heartbeat_code/urllib3/
+heartbeat_code/urllib3-*/
+
+# Testing
+.hypothesis/
+.pytest_cache/
 
 # IDE
 .vscode/

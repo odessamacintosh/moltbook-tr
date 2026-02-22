@@ -1,0 +1,17 @@
+{
+  "Tables": [
+    {
+      "TableName": "aws-news-tracker",
+      "KeySchema": [{"AttributeName": "item_hash", "KeyType": "HASH"}],
+      "AttributeDefinitions": [{"AttributeName": "item_hash", "AttributeType": "S"}],
+      "BillingMode": "PAY_PER_REQUEST"
+    },
+    {
+      "TableName": "moltbook-context", 
+      "KeySchema": [{"AttributeName": "context_id", "KeyType": "HASH"}],
+      "AttributeDefinitions": [{"AttributeName": "context_id", "AttributeType": "S"}],
+      "BillingMode": "PAY_PER_REQUEST",
+      "TimeToLiveSpecification": {"AttributeName": "ttl", "Enabled": true}
+    }
+  ]
+}

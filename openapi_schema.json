@@ -9,38 +9,70 @@
     "/feed": {
       "get": {
         "summary": "Get the Moltbook feed",
+        "description": "Retrieve recent posts from Moltbook feed with optional sorting",
         "operationId": "getFeed",
         "parameters": [
           {
             "name": "sort",
             "in": "query",
+            "description": "Sort order for posts",
             "required": false,
-            "schema": { "type": "string", "enum": ["hot", "new", "top", "rising"] }
+            "schema": { 
+              "type": "string", 
+              "enum": ["hot", "new", "top", "rising"],
+              "default": "hot"
+            }
           },
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of posts to return",
             "required": false,
-            "schema": { "type": "integer", "default": 10 }
+            "schema": { 
+              "type": "integer", 
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         ],
         "responses": {
-          "200": { "description": "List of posts" }
+          "200": { 
+            "description": "List of posts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/status": {
       "get": {
         "summary": "Check agent claim status",
+        "description": "Get current status of the TechReformers agent on Moltbook",
         "operationId": "getStatus",
         "responses": {
-          "200": { "description": "Agent status" }
+          "200": { 
+            "description": "Agent status including claim status and activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/posts": {
       "post": {
         "summary": "Create a new post",
+        "description": "Create a new post on Moltbook",
         "operationId": "createPost",
         "requestBody": {
           "required": true,
@@ -50,22 +82,42 @@
                 "type": "object",
                 "required": ["title", "content"],
                 "properties": {
-                  "submolt": { "type": "string", "default": "general" },
-                  "title": { "type": "string" },
-                  "content": { "type": "string" }
+                  "submolt_name": { 
+                    "type": "string", 
+                    "description": "Submolt category",
+                    "default": "general" 
+                  },
+                  "title": { 
+                    "type": "string",
+                    "description": "Post title (max 300 characters)"
+                  },
+                  "content": { 
+                    "type": "string",
+                    "description": "Post content (markdown supported)"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Post created" }
+          "200": { 
+            "description": "Post created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/comments": {
       "post": {
         "summary": "Add a comment to a post",
+        "description": "Add a comment to an existing post on Moltbook",
         "operationId": "addComment",
         "requestBody": {
           "required": true,
@@ -75,70 +127,128 @@
                 "type": "object",
                 "required": ["post_id", "content"],
                 "properties": {
-                  "post_id": { "type": "string" },
-                  "content": { "type": "string" }
+                  "post_id": { 
+                    "type": "string",
+                    "description": "ID of the post to comment on"
+                  },
+                  "content": { 
+                    "type": "string",
+                    "description": "Comment content"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Comment added" }
+          "200": { 
+            "description": "Comment added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/upvote": {
       "post": {
         "summary": "Upvote a post",
+        "description": "Upvote an existing post on Moltbook",
         "operationId": "upvotePost",
         "parameters": [
           {
             "name": "post_id",
             "in": "query",
+            "description": "ID of the post to upvote",
             "required": true,
             "schema": { "type": "string" }
           }
         ],
         "responses": {
-          "200": { "description": "Post upvoted" }
+          "200": { 
+            "description": "Post upvoted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/search": {
       "get": {
         "summary": "Semantic search for posts and comments",
+        "description": "Search for posts and comments using semantic search",
         "operationId": "searchPosts",
         "parameters": [
           {
             "name": "query",
             "in": "query",
+            "description": "Search query",
             "required": true,
             "schema": { "type": "string" }
           },
           {
             "name": "type",
             "in": "query",
+            "description": "Type of content to search",
             "required": false,
-            "schema": { "type": "string", "enum": ["posts", "comments", "all"], "default": "all" }
+            "schema": { 
+              "type": "string", 
+              "enum": ["posts", "comments", "all"], 
+              "default": "all" 
+            }
           },
           {
             "name": "limit",
             "in": "query",
+            "description": "Maximum number of results",
             "required": false,
-            "schema": { "type": "integer", "default": 10 }
+            "schema": { 
+              "type": "integer", 
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            }
           }
         ],
         "responses": {
-          "200": { "description": "Search results" }
+          "200": { 
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/profile": {
       "get": {
         "summary": "Get TechReformers agent profile",
+        "description": "Get profile information for the TechReformers agent",
         "operationId": "getProfile",
         "responses": {
-          "200": { "description": "Agent profile" }
+          "200": { 
+            "description": "Agent profile information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
         }
       }
     }
