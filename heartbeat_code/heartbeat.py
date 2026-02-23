@@ -3,35 +3,9 @@ import os
 import boto3
 import requests
 from datetime import datetime, timezone
-from time import sleep
 from shared.utils import get_recent_context
 
 BASE_URL = "https://www.moltbook.com/api/v1"
-
-def retry_request(func, max_retries=3, backoff=2):
-    """Retry a request function with exponential backoff"""
-    for attempt in range(max_retries):
-        try:
-            response = func()
-            if response.status_code in [200, 201]:
-                return response
-            elif response.status_code >= 500:
-                # Server error, retry
-                if attempt < max_retries - 1:
-                    wait_time = backoff ** attempt
-                    print(f"Server error {response.status_code}, retrying in {wait_time}s...")
-                    sleep(wait_time)
-                    continue
-            # Client error or final attempt, return as-is
-            return response
-        except Exception as e:
-            if attempt < max_retries - 1:
-                wait_time = backoff ** attempt
-                print(f"Request failed: {e}, retrying in {wait_time}s...")
-                sleep(wait_time)
-                continue
-            raise
-    return response
 
 def get_api_key():
     client = boto3.client("secretsmanager", region_name="us-east-1")
@@ -99,8 +73,8 @@ def solve_verification(data, headers):
         f"Decode this obfuscated math problem and return ONLY the numeric answer "
         f"with exactly 2 decimal places (e.g. '15.00'). Problem: {challenge}"
     )
-    r = retry_request(lambda: requests.post(f"{BASE_URL}/verify", headers=headers,
-                      json={"verification_code": code, "answer": answer}))
+    r = requests.post(f"{BASE_URL}/verify", headers=headers,
+                      json={"verification_code": code, "answer": answer})
     return r.json()
 
 def lambda_handler(event, context):
@@ -109,8 +83,8 @@ def lambda_handler(event, context):
     api_key = get_api_key()
     headers = get_headers(api_key)
 
-    # Check claim status with retry
-    status_r = retry_request(lambda: requests.get(f"{BASE_URL}/agents/status", headers=headers))
+    # Check claim status
+    status_r = requests.get(f"{BASE_URL}/agents/status", headers=headers)
     status = status_r.json().get("status")
     print(f"Claim status: {status}")
 
@@ -118,8 +92,8 @@ def lambda_handler(event, context):
         print("Not claimed yet, skipping.")
         return {"statusCode": 200, "body": "Not claimed"}
 
-    # Get feed with retry
-    feed_r = retry_request(lambda: requests.get(f"{BASE_URL}/posts", params={"sort": "hot", "limit": 10}, headers=headers))
+    # Get feed
+    feed_r = requests.get(f"{BASE_URL}/posts", params={"sort": "hot", "limit": 10}, headers=headers)
     feed = feed_r.json()
     posts = feed.get("posts", [])
     print(f"Feed fetched: {len(posts)} posts")
@@ -158,10 +132,10 @@ Reference your current analysis work naturally in posts/comments when relevant."
     if decision.startswith("COMMENT:"):
         parts = decision.replace("COMMENT:", "").strip().split("|", 1)
         if len(parts) == 2:
-            post_id = parts[0].strip().replace(" ", "")  # Remove any spaces from UUID
+            post_id = parts[0].strip()
             comment_text = parts[1].strip()
-            r = retry_request(lambda: requests.post(f"{BASE_URL}/posts/{post_id}/comments",
-                              headers=headers, json={"content": comment_text}))
+            r = requests.post(f"{BASE_URL}/posts/{post_id}/comments",
+                              headers=headers, json={"content": comment_text})
             data = r.json()
             # Check if verification is needed (nested in comment object)
             if data.get("comment", {}).get("verification"):
@@ -174,8 +148,8 @@ Reference your current analysis work naturally in posts/comments when relevant."
         if len(parts) == 2:
             title = parts[0].strip()
             content = parts[1].strip()
-            r = retry_request(lambda: requests.post(f"{BASE_URL}/posts", headers=headers,
-                              json={"submolt_name": "general", "title": title, "content": content}))
+            r = requests.post(f"{BASE_URL}/posts", headers=headers,
+                              json={"submolt_name": "general", "title": title, "content": content})
             data = r.json()
             # Check if verification is needed (nested in post object)
             if data.get("post", {}).get("verification"):
