@@ -3,6 +3,7 @@ import os
 import boto3
 import requests
 from datetime import datetime, timezone
+from shared.utils import get_recent_context
 
 BASE_URL = "https://www.moltbook.com/api/v1"
 
@@ -17,19 +18,46 @@ def get_headers(api_key):
         "Content-Type": "application/json"
     }
 
-def ask_claude(prompt):
+def get_work_context():
+    """Get recent AWS news analysis context with safe error handling"""
+    try:
+        # Only if feature flag is enabled
+        if os.environ.get('USE_CONTEXT', 'false').lower() != 'true':
+            return ""
+        
+        # Get recent context from news analysis work
+        contexts = get_recent_context(hours=48)
+        if not contexts:
+            return ""
+        
+        # Format top 3 most recent items
+        context_lines = []
+        for ctx in contexts[:3]:
+            if ctx.get('moltbook_context'):
+                context_lines.append(f"Currently {ctx['moltbook_context']}")
+        
+        return "\n".join(context_lines)
+    except Exception as e:
+        print(f"Error getting work context: {e}")
+        return ""  # Graceful degradation - continue without context
+
+def ask_claude(prompt, system_prompt=None):
     bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
+    
+    if system_prompt is None:
+        system_prompt = (
+            "You are TechReformers, an AI agent on Moltbook — a social network for AI agents. "
+            "You represent Tech Reformers LLC, an AWS Advanced Services Partner and Authorized Training Provider. "
+            "You have deep expertise in AWS cloud architecture, AI/ML implementation, and enterprise training. "
+            "Be concise, insightful, and professional but conversational. No hashtags or emojis."
+        )
+    
     response = bedrock.invoke_model(
         modelId="us.anthropic.claude-sonnet-4-6",
         body=json.dumps({
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 500,
-            "system": (
-                "You are TechReformers, an AI agent on Moltbook — a social network for AI agents. "
-                "You represent Tech Reformers LLC, an AWS Advanced Services Partner and Authorized Training Provider. "
-                "You have deep expertise in AWS cloud architecture, AI/ML implementation, and enterprise training. "
-                "Be concise, insightful, and professional but conversational. No hashtags or emojis."
-            ),
+            "system": system_prompt,
             "messages": [{"role": "user", "content": prompt}]
         })
     )
@@ -80,13 +108,24 @@ def lambda_handler(event, context):
         for p in posts[:5]
     ])
 
+    # Get work context and build system prompt
+    work_context = get_work_context()
+    context_addition = f"\n\nCurrent work:\n{work_context}" if work_context else ""
+    
+    system_prompt = f"""You are TechReformers, an AI agent on Moltbook representing Tech Reformers LLC, an AWS Advanced Services Partner and Authorized Training Provider. Deep expertise in AWS cloud architecture, AI/ML implementation, enterprise training. Be concise, insightful, professional but conversational. No hashtags or emojis.
+
+Balance between creating original posts and commenting on others' posts. Comment when you can add substantial insights, share relevant experience, or drive discussion. Create original posts about controversial AWS takes, enterprise lessons learned, or certification insights. Be conversational and ask questions that invite replies.{context_addition}
+
+Reference your current analysis work naturally in posts/comments when relevant."""
+
     # Ask Claude whether to post or comment
     decision = ask_claude(
         f"Here are the top posts on Moltbook right now:\n{feed_summary}\n\n"
         f"Should you comment on one of these posts, or create a new post about AWS, AI, or cloud training? "
         f"Reply with either:\n"
         f"COMMENT: <post_id> | <your comment text>\n"
-        f"POST: <title> | <content>"
+        f"POST: <title> | <content>",
+        system_prompt=system_prompt
     )
     print(f"Claude decision: {decision}")
 
@@ -98,7 +137,9 @@ def lambda_handler(event, context):
             r = requests.post(f"{BASE_URL}/posts/{post_id}/comments",
                               headers=headers, json={"content": comment_text})
             data = r.json()
-            if data.get("verification_required"):
+            # Check if verification is needed (nested in comment object)
+            if data.get("comment", {}).get("verification"):
+                print("Verification required, solving...")
                 data = solve_verification(data, headers)
             print(f"Comment result: {data}")
 
@@ -110,7 +151,9 @@ def lambda_handler(event, context):
             r = requests.post(f"{BASE_URL}/posts", headers=headers,
                               json={"submolt_name": "general", "title": title, "content": content})
             data = r.json()
-            if data.get("verification_required"):
+            # Check if verification is needed (nested in post object)
+            if data.get("post", {}).get("verification"):
+                print("Verification required, solving...")
                 data = solve_verification(data, headers)
             print(f"Post result: {data}")
 
