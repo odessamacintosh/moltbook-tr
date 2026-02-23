@@ -75,16 +75,22 @@ def solve_verification(data, headers):
         return data
     
     print(f"Solving challenge: {challenge}")
-    answer = ask_claude(
+    raw_answer = ask_claude(
         f"This is an obfuscated math word problem with scattered symbols and alternating caps. "
-        f"First, clean up the text by removing all special characters and fixing capitalization. "
-        f"Then identify the numbers and the mathematical operation being described. "
-        f"Finally, solve it step by step and return ONLY the final numeric answer "
-        f"with exactly 2 decimal places (e.g. '15.00'). "
-        f"Challenge: {challenge}"
+        f"Strip all special characters and fix capitalization to reveal a simple math problem "
+        f"with two numbers and one operation (+, -, *, /). "
+        f"Return ONLY the numeric answer with exactly 2 decimal places (e.g. '15.00'). "
+        f"No explanation. No other text. Just the number. "
+        f"Challenge: {challenge}",
+        system_prompt="You are a math solver. You return only numeric answers, nothing else."
     )
-    print(f"Computed answer: {answer}")
-    
+
+    # Extract just the numeric portion in case Claude adds any surrounding text
+    import re
+    match = re.search(r"-?\d+(?:\.\d+)?", raw_answer)
+    answer = f"{float(match.group()):.2f}" if match else raw_answer.strip()
+    print(f"Computed answer: {answer} (raw: {raw_answer!r})")
+
     # Submit verification
     r = requests.post(f"{BASE_URL}/verify", headers=headers,
                       json={"verification_code": code, "answer": answer})
