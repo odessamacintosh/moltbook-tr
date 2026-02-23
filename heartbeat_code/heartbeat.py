@@ -64,18 +64,33 @@ def ask_claude(prompt, system_prompt=None):
     return json.loads(response["body"].read())["content"][0]["text"].strip()
 
 def solve_verification(data, headers):
-    verification = data.get("post", data.get("comment", {})).get("verification", {})
+    """Solve verification challenge and submit answer"""
+    # Get verification from nested comment or post object
+    verification = data.get("comment", data.get("post", {})).get("verification", {})
     challenge = verification.get("challenge_text")
     code = verification.get("verification_code")
+    
     if not challenge or not code:
+        print("No verification challenge found")
         return data
+    
+    print(f"Solving challenge: {challenge}")
     answer = ask_claude(
-        f"Decode this obfuscated math problem and return ONLY the numeric answer "
-        f"with exactly 2 decimal places (e.g. '15.00'). Problem: {challenge}"
+        f"This is an obfuscated math word problem with scattered symbols and alternating caps. "
+        f"First, clean up the text by removing all special characters and fixing capitalization. "
+        f"Then identify the numbers and the mathematical operation being described. "
+        f"Finally, solve it step by step and return ONLY the final numeric answer "
+        f"with exactly 2 decimal places (e.g. '15.00'). "
+        f"Challenge: {challenge}"
     )
+    print(f"Computed answer: {answer}")
+    
+    # Submit verification
     r = requests.post(f"{BASE_URL}/verify", headers=headers,
                       json={"verification_code": code, "answer": answer})
-    return r.json()
+    result = r.json()
+    print(f"Verification result: {result}")
+    return result
 
 def lambda_handler(event, context):
     print(f"Heartbeat started at {datetime.now(timezone.utc).isoformat()}")
@@ -123,8 +138,9 @@ Reference your current analysis work naturally in posts/comments when relevant."
         f"Here are the top posts on Moltbook right now:\n{feed_summary}\n\n"
         f"Should you comment on one of these posts, or create a new post about AWS, AI, or cloud training? "
         f"Reply with either:\n"
-        f"COMMENT: <post_id> | <your comment text>\n"
-        f"POST: <title> | <content>",
+        f"COMMENT: <exact_post_id_from_above> | <your comment text>\n"
+        f"POST: <title> | <content>\n\n"
+        f"IMPORTANT: If commenting, copy the EXACT Post ID from the list above. Do not modify or shorten it.",
         system_prompt=system_prompt
     )
     print(f"Claude decision: {decision}")
@@ -132,13 +148,15 @@ Reference your current analysis work naturally in posts/comments when relevant."
     if decision.startswith("COMMENT:"):
         parts = decision.replace("COMMENT:", "").strip().split("|", 1)
         if len(parts) == 2:
-            post_id = parts[0].strip()
+            post_id = parts[0].strip().replace(" ", "")  # Remove any spaces from UUID
             comment_text = parts[1].strip()
             r = requests.post(f"{BASE_URL}/posts/{post_id}/comments",
                               headers=headers, json={"content": comment_text})
             data = r.json()
-            # Check if verification is needed (nested in comment object)
-            if data.get("comment", {}).get("verification"):
+            print(f"Comment response: {data}")
+            
+            # Check if verification is required (check verificationStatus field)
+            if data.get("comment", {}).get("verificationStatus") == "pending":
                 print("Verification required, solving...")
                 data = solve_verification(data, headers)
             print(f"Comment result: {data}")
@@ -151,8 +169,10 @@ Reference your current analysis work naturally in posts/comments when relevant."
             r = requests.post(f"{BASE_URL}/posts", headers=headers,
                               json={"submolt_name": "general", "title": title, "content": content})
             data = r.json()
-            # Check if verification is needed (nested in post object)
-            if data.get("post", {}).get("verification"):
+            print(f"Post response: {data}")
+            
+            # Check if verification is required (check verificationStatus field)
+            if data.get("post", {}).get("verificationStatus") == "pending":
                 print("Verification required, solving...")
                 data = solve_verification(data, headers)
             print(f"Post result: {data}")
