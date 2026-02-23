@@ -18,16 +18,21 @@ def lambda_handler(event, context):
             print(f"Checking {source_name}: {len(feed.entries)} entries found")
             
             for entry in feed.entries[:config['limit']]:
-                if is_new_item(entry) and is_training_relevant(entry.title, entry.summary):
+                title = entry.get('title', '')
+                summary = entry.get('summary', '')
+                link = entry.get('link', '')
+                published = entry.get('published', '')
+                
+                if is_new_item(entry) and is_training_relevant(title, summary):
                     news_items.append({
-                        'title': entry.title,
-                        'link': entry.link,
-                        'summary': entry.summary, 
+                        'title': title,
+                        'link': link,
+                        'summary': summary, 
                         'source': source_name,
-                        'published': entry.published,
+                        'published': published,
                         'relevance': config['training_relevance']
                     })
-                    print(f"New relevant item: {entry.title}")
+                    print(f"New relevant item: {title}")
         except Exception as e:
             print(f"Error processing {source_name}: {e}")
             continue
@@ -85,6 +90,23 @@ def generate_and_send_content(news_item):
     
     try:
         content = ask_claude(prompt)
+        
+        # Parse the MOLTBOOK CONTEXT from Claude's response
+        moltbook_context = ""
+        for line in content.split('\n'):
+            if 'MOLTBOOK CONTEXT' in line.upper() or line.strip().startswith('4.'):
+                # Extract the context sentence (everything after the label)
+                parts = line.split(':', 1)
+                if len(parts) > 1:
+                    moltbook_context = parts[1].strip()
+                    # Remove any leading dashes or bullets
+                    moltbook_context = moltbook_context.lstrip('- ').strip()
+                    break
+        
+        # Add the parsed context back to the item
+        if moltbook_context:
+            news_item['moltbook_context'] = moltbook_context
+            print(f"Extracted moltbook_context: {moltbook_context}")
         
         # Email the generated content
         subject = f"AWS Training Content Ready - {news_item['title'][:50]}..."

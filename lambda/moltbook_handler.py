@@ -30,6 +30,9 @@ def retry_with_backoff(max_retries=3, initial_delay=1):
                         else:
                             # Don't retry client errors (4xx except 429)
                             raise
+                    else:
+                        # Connection error (timeout, DNS failure, network error)
+                        print(f"Connection error: {type(e).__name__}: {str(e)}, retrying in {delay}s...")
                     
                     if attempt < max_retries - 1:
                         time.sleep(delay)
@@ -37,9 +40,8 @@ def retry_with_backoff(max_retries=3, initial_delay=1):
                     else:
                         print(f"Max retries reached, giving up")
                         raise last_exception
-            
-            raise last_exception
         return wrapper
+
     return decorator
 
 def get_api_key():
@@ -242,9 +244,3 @@ def lambda_handler(event, context):
             }
         }
     }
-```
-
-Then put this in `lambda/requirements.txt`:
-```
-requests
-boto3
