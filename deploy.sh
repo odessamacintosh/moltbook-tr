@@ -340,10 +340,10 @@ echo "[11/12] Configuring heartbeat Lambda environment..."
 aws lambda wait function-updated --function-name $HEARTBEAT_LAMBDA_NAME --region $REGION
 aws lambda update-function-configuration \
     --function-name $HEARTBEAT_LAMBDA_NAME \
-    --environment "Variables={BEDROCK_AGENT_ID=${AGENT_ID},BEDROCK_AGENT_ALIAS_ID=${AGENT_ALIAS_ID},USE_CONTEXT=false}" \
+    --environment "Variables={BEDROCK_AGENT_ID=${AGENT_ID},BEDROCK_AGENT_ALIAS_ID=${AGENT_ALIAS_ID},USE_CONTEXT=true}" \
     --region $REGION > /dev/null
 
-echo "✓ Heartbeat configured (USE_CONTEXT=false by default)"
+echo "✓ Heartbeat configured (USE_CONTEXT=true)"
 echo ""
 
 # Step 12: Set up EventBridge schedules
