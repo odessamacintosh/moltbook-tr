@@ -33,7 +33,7 @@ fi
 
 echo "✓ AWS credentials configured (profile: $PROFILE)"
 
-if ! aws secretsmanager describe-secret --secret-id moltbook/api-key --region $REGION &> /dev/null; then
+if ! aws secretsmanager describe-secret --secret-id moltbook/api-key --region $REGION --cli-connect-timeout 10 --cli-read-timeout 10 &> /dev/null; then
     echo "ERROR: Secret moltbook/api-key not found in Secrets Manager"
     echo "Please create it:"
     echo "  aws secretsmanager create-secret --name moltbook/api-key --secret-string '{\"api_key\":\"YOUR_KEY\"}' --region $REGION --profile $PROFILE"

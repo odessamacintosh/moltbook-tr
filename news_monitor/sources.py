@@ -22,14 +22,22 @@ NEWS_SOURCES = {
     }
 }
 
-# Keywords that indicate training/certification relevance
+# Keywords that indicate a meaningful AWS announcement worth covering.
+# Cast wide — any new capability, service, or feature has training implications.
 TRAINING_KEYWORDS = [
-    'certification', 'exam', 'training', 'bootcamp', 'course',
+    # Launch signals
+    'now available', 'generally available', 'general availability', 'preview',
+    'announces', 'introducing', 'launches', 'launched', 'new',
+    # Service/feature terms common in AWS announcements
+    'instance', 'service', 'feature', 'support', 'update', 'region',
+    # Cert and learning terms
+    'certification', 'exam', 'training', 'course', 'learning path',
     'practitioner', 'associate', 'professional', 'specialty',
-    'new service', 'announcement', 'ga', 'general availability'
+    'architect', 'developer', 'sysops', 'devops', 'security',
 ]
 
 def is_training_relevant(title, summary):
-    """Check if news item is relevant for training content"""
+    """Check if news item is a meaningful AWS announcement worth covering.
+    Most AWS announcements qualify — the training angle is applied in the prompt."""
     text = f"{title} {summary}".lower()
     return any(keyword in text for keyword in TRAINING_KEYWORDS)

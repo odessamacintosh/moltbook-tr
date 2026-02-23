@@ -57,35 +57,42 @@ def generate_and_send_content(news_item):
     """Generate training-focused content and email it"""
     
     prompt = f"""
-    Analyze this AWS news from an AWS Authorized Training Provider perspective:
-    
+    You are TechReformers, an AWS Authorized Training Provider. A new AWS announcement just dropped.
+    Your job is to translate this announcement into content that helps certification candidates and
+    enterprise learners understand why it matters to them — even if the announcement isn't about
+    training directly. Every AWS capability change has exam and career implications; make that angle explicit.
+
+    ANNOUNCEMENT:
     Title: {news_item['title']}
     Summary: {news_item['summary']}
     Source: {news_item['source']}
     Link: {news_item['link']}
-    
-    As an AWS Authorized Training Provider, generate content for:
-    
-    1. TWITTER (280 chars max): 
-       - Focus on how this impacts AWS certifications or training
-       - Be conversational and engaging
-       - Include relevant hashtags
-    
+
+    Generate the following four sections:
+
+    1. TWITTER (280 chars max):
+       - Lead with the certification/career angle: which exam domain or job role does this affect?
+       - Be direct and punchy. Include 2-3 relevant hashtags (e.g. #AWScert #CloudTraining #AWS).
+
     2. LINKEDIN (1300 chars max):
-       - Professional analysis of training/certification implications  
-       - How this affects enterprise AWS adoption
-       - Include call-to-action for engagement
-    
+       - Open with a hook: "If you're studying for [cert], pay attention to this."
+       - Explain what changed and which AWS service/feature is involved.
+       - Name the specific certification exams or domains this is likely to appear in.
+       - Give one practical example of how a Solutions Architect, Developer, or SysOps engineer
+         would use this in the real world.
+       - Close with a call-to-action (comment, share, or link to TechReformers).
+
     3. BLOG OUTLINE:
-       - 3-4 key points for detailed technical analysis
-       - Focus on practical implications for students/enterprises
-       
+       - Title suggestion
+       - 3-4 section headings with one-line descriptions
+       - Which AWS cert domains this content supports
+
     4. MOLTBOOK CONTEXT (one sentence):
-       - What TechReformers is "currently working on" related to this news
-       - Should sound natural, like: "analyzing X for our upcoming Y training"
-    
-    Keep everything focused on training, certification, and enterprise learning implications.
-    Remember: As an ATP, we use official AWS curriculum but add industry context and demos.
+       - What TechReformers is "currently working on" related to this news.
+       - Should sound natural, like: "analyzing X for our upcoming Y training" or
+         "building a new lab on X for Solutions Architect students".
+
+    As an ATP we teach official AWS curriculum but add real-world context, hands-on labs, and demos.
     """
     
     try:
