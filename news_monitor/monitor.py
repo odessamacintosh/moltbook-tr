@@ -96,7 +96,7 @@ def generate_and_send_content(news_item):
     """
     
     try:
-        content = ask_claude(prompt)
+        content = ask_claude(prompt, max_tokens=2000)
         
         # Parse the MOLTBOOK CONTEXT from Claude's response
         moltbook_context = ""
