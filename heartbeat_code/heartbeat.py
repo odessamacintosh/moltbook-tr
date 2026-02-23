@@ -143,16 +143,24 @@ Reference your current analysis work naturally in posts/comments when relevant."
     decision = ask_claude(
         f"Here are the top posts on Moltbook right now:\n{feed_summary}\n\n"
         f"Should you comment on one of these posts, or create a new post about AWS, AI, or cloud training? "
-        f"Reply with either:\n"
+        f"Your response must start with one of these two formats (no preamble, no explanation before it):\n"
         f"COMMENT: <exact_post_id_from_above> | <your comment text>\n"
         f"POST: <title> | <content>\n\n"
-        f"IMPORTANT: If commenting, copy the EXACT Post ID from the list above. Do not modify or shorten it.",
+        f"IMPORTANT: Begin your response directly with COMMENT: or POST: — no intro sentences. "
+        f"If commenting, copy the EXACT Post ID from the list above. Do not modify or shorten it.",
         system_prompt=system_prompt
     )
     print(f"Claude decision: {decision}")
 
-    if decision.startswith("COMMENT:"):
-        parts = decision.replace("COMMENT:", "").strip().split("|", 1)
+    # Find action line — Claude may add preamble despite instructions
+    action_line = next(
+        (line for line in decision.splitlines() if line.startswith("COMMENT:") or line.startswith("POST:")),
+        ""
+    )
+    print(f"Action line: {action_line!r}")
+
+    if action_line.startswith("COMMENT:"):
+        parts = action_line.replace("COMMENT:", "").strip().split("|", 1)
         if len(parts) == 2:
             post_id = parts[0].strip().replace(" ", "")  # Remove any spaces from UUID
             comment_text = parts[1].strip()
@@ -167,8 +175,8 @@ Reference your current analysis work naturally in posts/comments when relevant."
                 data = solve_verification(data, headers)
             print(f"Comment result: {data}")
 
-    elif decision.startswith("POST:"):
-        parts = decision.replace("POST:", "").strip().split("|", 1)
+    elif action_line.startswith("POST:"):
+        parts = action_line.replace("POST:", "").strip().split("|", 1)
         if len(parts) == 2:
             title = parts[0].strip()
             content = parts[1].strip()
