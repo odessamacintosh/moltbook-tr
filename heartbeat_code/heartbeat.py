@@ -85,13 +85,13 @@ def solve_verification(data, headers):
         system_prompt="You are a math solver. You return only numeric answers, nothing else."
     )
 
-    # Extract just the numeric portion in case Claude adds any surrounding text
+    # Extract the last number in the response (the answer, not an operand)
     import re
-    match = re.search(r"-?\d+(?:\.\d+)?", raw_answer)
-    answer = f"{float(match.group()):.2f}" if match else raw_answer.strip()
+    matches = re.findall(r"-?\d+(?:\.\d+)?", raw_answer)
+    answer = float(f"{float(matches[-1]):.2f}") if matches else raw_answer.strip()
     print(f"Computed answer: {answer} (raw: {raw_answer!r})")
 
-    # Submit verification
+    # Submit verification (answer as float, not string)
     r = requests.post(f"{BASE_URL}/verify", headers=headers,
                       json={"verification_code": code, "answer": answer})
     result = r.json()
