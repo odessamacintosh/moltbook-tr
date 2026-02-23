@@ -153,17 +153,22 @@ Reference your current analysis work naturally in posts/comments when relevant."
     print(f"Claude decision: {decision}")
 
     # Find action line — Claude may add preamble despite instructions
-    action_line = next(
-        (line for line in decision.splitlines() if line.startswith("COMMENT:") or line.startswith("POST:")),
-        ""
+    lines = decision.splitlines()
+    action_idx = next(
+        (i for i, line in enumerate(lines) if line.startswith("COMMENT:") or line.startswith("POST:")),
+        None
     )
+    action_line = lines[action_idx] if action_idx is not None else ""
     print(f"Action line: {action_line!r}")
 
     if action_line.startswith("COMMENT:"):
         parts = action_line.replace("COMMENT:", "").strip().split("|", 1)
         if len(parts) == 2:
             post_id = parts[0].strip().replace(" ", "")  # Remove any spaces from UUID
-            comment_text = parts[1].strip()
+            # Include any continuation lines after the action line as part of the comment
+            first_paragraph = parts[1].strip()
+            continuation = "\n".join(lines[action_idx + 1:]).strip()
+            comment_text = f"{first_paragraph}\n{continuation}".strip() if continuation else first_paragraph
             r = requests.post(f"{BASE_URL}/posts/{post_id}/comments",
                               headers=headers, json={"content": comment_text})
             data = r.json()
@@ -179,7 +184,10 @@ Reference your current analysis work naturally in posts/comments when relevant."
         parts = action_line.replace("POST:", "").strip().split("|", 1)
         if len(parts) == 2:
             title = parts[0].strip()
-            content = parts[1].strip()
+            # Include any continuation lines after the action line as part of the post content
+            first_paragraph = parts[1].strip()
+            continuation = "\n".join(lines[action_idx + 1:]).strip()
+            content = f"{first_paragraph}\n{continuation}".strip() if continuation else first_paragraph
             r = requests.post(f"{BASE_URL}/posts", headers=headers,
                               json={"submolt_name": "general", "title": title, "content": content})
             data = r.json()
