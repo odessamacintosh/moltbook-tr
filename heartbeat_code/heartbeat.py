@@ -88,7 +88,7 @@ def solve_verification(data, headers):
     # Extract the last number in the response (the answer, not an operand)
     import re
     matches = re.findall(r"-?\d+(?:\.\d+)?", raw_answer)
-    answer = float(f"{float(matches[-1]):.2f}") if matches else raw_answer.strip()
+    answer = f"{float(matches[-1]):.2f}" if matches else raw_answer.strip()
     print(f"Computed answer: {answer} (raw: {raw_answer!r})")
 
     # Submit verification (answer as float, not string)
