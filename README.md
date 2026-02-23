@@ -1,333 +1,296 @@
 # TechReformers Moltbook Agent
 
-An AWS Bedrock-powered AI agent that maintains an active presence on [Moltbook](https://www.moltbook.com), a social network for AI agents. The agent autonomously creates posts, comments, upvotes content, and performs semantic searches while respecting platform rate limits.
+An AWS-powered autonomous AI agent for [Tech Reformers LLC](https://www.techreformers.com), an AWS Advanced Services Partner and Authorized Training Provider. The system does two things:
+
+1. **Heartbeat** — Autonomously posts and comments on [Moltbook](https://www.moltbook.com) (a social network for AI agents) every 30 minutes, representing TechReformers with expert AWS and cloud training insights.
+
+2. **News Monitor** — Monitors AWS RSS feeds every 6 hours and emails ready-to-use Twitter, LinkedIn, and blog content framed around AWS certification and enterprise training implications.
 
 ## Architecture
 
-The system consists of three main components:
+Three Lambda functions, all driven by EventBridge schedules:
 
-1. **AWS Bedrock Agent** - Provides AI reasoning and decision-making using Claude Sonnet
-2. **Lambda Functions** - Execute Moltbook API calls and periodic heartbeat operations
-3. **EventBridge Scheduler** - Triggers heartbeat checks every 30 minutes
+| Lambda | Schedule | Purpose |
+|---|---|---|
+| `moltbook-heartbeat` | Every 30 min | Reads Moltbook feed, asks Claude to post or comment, solves verification challenges |
+| `moltbook-news-monitor` | Every 6 hours | Polls AWS RSS feeds, generates cert-focused training content, emails results |
+| `moltbook-handler` | On-demand | Bedrock agent action handler (Moltbook API actions) |
+
+**AWS services used:** Lambda, Bedrock (Claude Sonnet), EventBridge, DynamoDB, SES, Secrets Manager, S3, IAM
+
+## Project Structure
+
+```
+moltbook-agent/
+├── heartbeat_code/
+│   └── heartbeat.py          # Heartbeat Lambda — posts/comments on Moltbook
+├── lambda/
+│   ├── moltbook_handler.py   # Bedrock agent action handler
+│   └── requirements.txt
+├── news_monitor/
+│   ├── monitor.py            # News monitor Lambda — RSS → email pipeline
+│   ├── sources.py            # RSS feed config and keyword filtering
+│   └── requirements.txt
+├── shared/
+│   └── utils.py              # Shared utilities (ask_claude, send_email, DynamoDB helpers)
+├── infrastructure/
+│   └── tables.json           # DynamoDB table definitions
+├── bedrock_agent_setup.py    # Bedrock agent and action group creation
+├── openapi_schema.json       # OpenAPI schema for Bedrock action groups
+├── deploy.sh                 # Full deployment script (all 3 Lambdas + infrastructure)
+└── test-lambda.sh            # Test script for invoking individual Lambdas
+```
 
 ## Prerequisites
 
-Before deploying, ensure you have:
+### 1. AWS Account and CLI
 
-### 1. AWS Account and Credentials
-
-- AWS account with appropriate permissions
-- AWS CLI installed and configured
-- Permissions required:
-  - IAM role creation and policy management
-  - Lambda function creation and management
-  - Bedrock agent creation and management
-  - S3 bucket creation
-  - EventBridge rule creation
-  - Secrets Manager access
+- AWS CLI installed and configured with a named profile
+- The default profile in `deploy.sh` is `jkdemo` — edit this at the top of the script if yours differs
+- Region: `us-east-1` (also configurable in `deploy.sh`)
+- Required permissions: IAM, Lambda, Bedrock, S3, EventBridge, Secrets Manager, DynamoDB, SES
 
 ### 2. Moltbook API Key
 
-Create a secret in AWS Secrets Manager with your Moltbook API key:
+Create a Moltbook agent account at [moltbook.com](https://www.moltbook.com), then store your API key in Secrets Manager:
 
 ```bash
 aws secretsmanager create-secret \
   --name moltbook/api-key \
   --secret-string '{"api_key":"YOUR_MOLTBOOK_API_KEY"}' \
+  --region us-east-1 \
+  --profile YOUR_PROFILE
+```
+
+### 3. SES Verified Email Addresses
+
+The news monitor sends emails via SES. Verify your sender and recipient addresses:
+
+```bash
+aws ses verify-email-identity --email-address sender@yourdomain.com --region us-east-1
+aws ses verify-email-identity --email-address recipient@yourdomain.com --region us-east-1
+```
+
+The defaults in `shared/utils.py` are `jkrull@techreformers.com` (sender) and `john@techreformers.com` (recipient). Update these or set them via Lambda environment variables (`SENDER_EMAIL`, `RECIPIENT_EMAIL`).
+
+### 4. DynamoDB Tables
+
+Create the two required tables before deploying:
+
+```bash
+# News deduplication table
+aws dynamodb create-table \
+  --table-name aws-news-tracker \
+  --attribute-definitions AttributeName=item_hash,AttributeType=S \
+  --key-schema AttributeName=item_hash,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region us-east-1
+
+# Moltbook context table (heartbeat reads from this)
+aws dynamodb create-table \
+  --table-name moltbook-context \
+  --attribute-definitions AttributeName=context_id,AttributeType=S \
+  --key-schema AttributeName=context_id,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
   --region us-east-1
 ```
 
-Get your API key from [Moltbook](https://www.moltbook.com) after creating an agent account.
+### 5. Python 3.11+
 
-### 3. Python and Dependencies
-
-- Python 3.11 or later
-- pip package manager
-- Required Python packages (installed automatically during deployment):
-  - boto3
-  - requests
-
-### 4. Required Files
-
-Ensure these files are present in your project directory:
-
-- `lambda/moltbook_handler.py` - Main Lambda handler
-- `lambda/requirements.txt` - Lambda dependencies
-- `heartbeat.py` - Heartbeat Lambda function
-- `bedrock_agent_setup.py` - Bedrock agent setup script
-- `openapi_schema.json` - OpenAPI schema for action groups
-- `deploy.sh` - Deployment script
+Required locally only for the deployment packaging step (`pip3` must be available).
 
 ## Deployment
 
-### Quick Start
+```bash
+git clone https://github.com/odessamacintosh/moltbook-tr.git
+cd moltbook-tr
 
-1. Clone the repository and navigate to the project directory
+# Edit PROFILE at the top of deploy.sh to match your AWS CLI profile
+chmod +x deploy.sh
+./deploy.sh
+```
 
-2. Ensure AWS credentials are configured:
-   ```bash
-   aws sts get-caller-identity
-   ```
+The script runs 12 steps:
+1. Checks prerequisites (credentials, Moltbook secret)
+2. Creates S3 deployment bucket
+3. Creates Lambda IAM role with all required policies
+4. Packages and deploys `moltbook-handler`
+5. Packages and deploys `moltbook-heartbeat` (includes `shared/`)
+6. Packages and deploys `moltbook-news-monitor` (includes `shared/`)
+7. Creates/updates Bedrock agent
+8. Configures heartbeat Lambda environment variables
+9. Sets up EventBridge schedules (heartbeat: 30min, news monitor: 6hr)
 
-3. Create the Moltbook API key secret (if not already done):
-   ```bash
-   aws secretsmanager create-secret \
-     --name moltbook/api-key \
-     --secret-string '{"api_key":"YOUR_API_KEY"}' \
-     --region us-east-1
-   ```
+After deployment, the script prints all Lambda ARNs, Bedrock Agent ID, and test commands.
 
-4. Run the deployment script:
-   ```bash
-   chmod +x deploy.sh
-   ./deploy.sh
-   ```
+## Testing
 
-The deployment script will:
-- Check prerequisites
-- Create S3 bucket for deployment artifacts
-- Create IAM roles with appropriate permissions
-- Package and deploy Lambda functions
-- Create Bedrock agent with action groups
-- Set up EventBridge schedule for heartbeat
-- Output all resource ARNs and next steps
+Use `test-lambda.sh` to invoke any Lambda and see decoded CloudWatch logs:
 
-### Deployment Steps Explained
+```bash
+chmod +x test-lambda.sh
 
-The `deploy.sh` script performs the following steps:
+./test-lambda.sh --heartbeat   # Test heartbeat (will post or comment on Moltbook)
+./test-lambda.sh --news        # Test news monitor (checks feeds, emails if new content)
+./test-lambda.sh --handler     # Test Bedrock action handler
+./test-lambda.sh --all         # Test all three in sequence
+```
 
-1. **Prerequisites Check** - Verifies AWS credentials and Moltbook API key secret
-2. **S3 Bucket Setup** - Creates deployment bucket with public access blocked
-3. **Lambda IAM Role** - Creates role with Secrets Manager and Bedrock permissions
-4. **Main Lambda Deployment** - Packages and deploys moltbook-handler function
-5. **Heartbeat Lambda Deployment** - Packages and deploys heartbeat function
-6. **Bedrock Agent Setup** - Creates agent with Claude Sonnet model
-7. **Action Group Configuration** - Attaches OpenAPI schema to agent
-8. **Agent Instructions** - Configures TechReformers persona
-9. **EventBridge Schedule** - Sets up 30-minute heartbeat trigger
-10. **Summary Output** - Displays all resource ARNs and next steps
+## How It Works
+
+### Heartbeat
+
+Every 30 minutes the heartbeat Lambda:
+1. Checks Moltbook claim status (skips if not claimed)
+2. Fetches the top 10 hot posts from the feed
+3. Asks Claude (via Bedrock) to decide: comment on an existing post or create a new one
+4. Submits the comment or post via the Moltbook API
+5. If Moltbook returns a verification challenge (obfuscated math word problem), solves it with Claude and submits the answer
+6. Optionally references recent AWS news context from DynamoDB (controlled by `USE_CONTEXT` env var)
+
+Claude's response format:
+```
+COMMENT: <post_id> | <comment text, can be multi-paragraph>
+POST: <title> | <content, can be multi-paragraph>
+```
+
+### News Monitor
+
+Every 6 hours the news monitor Lambda:
+1. Polls 4 AWS RSS feeds (What's New, Training Blog, Architecture Blog, Security Blog)
+2. Filters for AWS announcements using keyword matching
+3. Deduplicates against DynamoDB (`aws-news-tracker`) to avoid reprocessing
+4. For each new item, asks Claude to generate:
+   - **Twitter** (280 chars): cert/career angle with specific exam domains
+   - **LinkedIn** (1300 chars): opens with "If you're studying for [cert]..." hook
+   - **Blog outline**: section headings + cert domain mapping table
+   - **Moltbook context**: one sentence for the heartbeat to reference
+5. Emails the generated content via SES
+6. Stores the Moltbook context sentence in DynamoDB (`moltbook-context`) for the heartbeat to use
+
+### Verification Challenges
+
+Moltbook uses obfuscated math word problems as anti-spam. Example:
+```
+A] lOo.oBbStt-Er] cLaW] fO^rCe] iSs] tW/eNn-Ty] fIiVee] neOoToOnS] pEr] cLaW...
+```
+
+The heartbeat solves these by calling Claude with a dedicated math-solver system prompt, extracting the last number from the response with regex, and submitting the answer as a string with 2 decimal places (e.g. `"50.00"`).
 
 ## Configuration
 
-### Environment Variables
+### AWS Profile
 
-For local development, create a `.env` file (see `.env.example`):
-
+Edit the `PROFILE` variable at the top of `deploy.sh`:
 ```bash
-MOLTBOOK_API_KEY=your_api_key_here
-BEDROCK_AGENT_ID=your_agent_id
-BEDROCK_AGENT_ALIAS_ID=your_alias_id
+PROFILE="jkdemo"   # Change to your AWS CLI profile name
 ```
 
-In production, the Lambda functions retrieve the API key from AWS Secrets Manager.
+### USE_CONTEXT Feature Flag
+
+Controls whether the heartbeat references recent AWS news in its posts/comments:
+
+```bash
+# Enable (recommended once news monitor has been running)
+aws lambda update-function-configuration \
+  --function-name moltbook-heartbeat \
+  --environment 'Variables={BEDROCK_AGENT_ID=YOUR_ID,BEDROCK_AGENT_ALIAS_ID=YOUR_ALIAS,USE_CONTEXT=true}' \
+  --region us-east-1
+
+# Disable
+# Change USE_CONTEXT=true to USE_CONTEXT=false in the above command
+```
+
+`deploy.sh` sets `USE_CONTEXT=true` by default.
+
+### News Sources
+
+Edit `news_monitor/sources.py` to add/remove RSS feeds or adjust per-feed limits:
+
+```python
+NEWS_SOURCES = {
+    'aws_whats_new': {
+        'url': 'https://aws.amazon.com/about-aws/whats-new/recent/feed/',
+        'limit': 5,
+        'training_relevance': 'high'
+    },
+    # Add more sources here
+}
+```
 
 ### Agent Persona
 
-The agent is configured with the following persona:
-
-- **Name**: TechReformers
-- **Profile**: https://www.moltbook.com/u/techreformers
-- **Expertise**: AWS cloud architecture, AI/ML implementation, enterprise training
-- **Behavior**: Share valuable insights, engage thoughtfully, maintain professionalism
-
-### Rate Limits
-
-The agent respects Moltbook's rate limits:
-
-- **Posts**: Maximum 1 per 30 minutes
-- **Comments**: Maximum 1 per 20 seconds
-
-The heartbeat Lambda enforces these limits automatically.
-
-## Usage
-
-### Invoking the Agent Manually
-
-You can invoke the Bedrock agent directly using the AWS CLI:
-
-```bash
-aws bedrock-agent-runtime invoke-agent \
-  --agent-id YOUR_AGENT_ID \
-  --agent-alias-id YOUR_ALIAS_ID \
-  --session-id test-session-$(date +%s) \
-  --input-text "Check my status on Moltbook" \
-  --region us-east-1 \
-  output.txt
-
-cat output.txt
-```
-
-### Available Actions
-
-The agent can perform the following actions:
-
-- **getFeed** - Browse recent posts (sort: hot/new/top/rising)
-- **getStatus** - Check agent claim status and activity
-- **createPost** - Create a new post (requires submolt, title, content)
-- **addComment** - Comment on a post (requires post_id, content)
-- **upvotePost** - Upvote a post (requires post_id)
-- **searchPosts** - Semantic search (requires query, optional type filter)
-- **getProfile** - View agent profile information
-
-### Heartbeat Mechanism
-
-The heartbeat Lambda runs every 30 minutes and:
-
-1. Checks agent status on Moltbook
-2. Determines if a new post should be created
-3. Invokes Bedrock agent to create post if conditions are met
-4. Logs all activity to CloudWatch
-
-The heartbeat ensures the agent maintains an active presence without manual intervention.
+The TechReformers persona is defined in `heartbeat_code/heartbeat.py` in the `ask_claude` default system prompt and the `system_prompt` string built in `lambda_handler`. Edit these to adapt the agent for a different organization.
 
 ## Monitoring
 
-### CloudWatch Logs
+CloudWatch log groups for all three Lambdas:
 
-Monitor agent activity in CloudWatch Logs:
+```
+/aws/lambda/moltbook-heartbeat
+/aws/lambda/moltbook-news-monitor
+/aws/lambda/moltbook-handler
+```
 
-- **Main Lambda**: `/aws/lambda/moltbook-handler`
-- **Heartbeat Lambda**: `/aws/lambda/moltbook-heartbeat`
-
-### Moltbook Profile
-
-View agent activity at: https://www.moltbook.com/u/techreformers
+View agent activity on Moltbook: [moltbook.com/u/techreformers](https://www.moltbook.com/u/techreformers)
 
 ## Troubleshooting
 
-### Deployment Fails with "Secret not found"
+**Deployment hangs at prerequisites check**
+SSO token refresh can take time. Wait 30 seconds and retry, or run `aws sso login --profile YOUR_PROFILE` in a terminal first.
 
-Ensure the Moltbook API key secret exists:
+**Heartbeat runs but nothing appears on Moltbook**
+Check CloudWatch logs and look for the `Action line:` log entry. If it's empty, Claude didn't follow the format — the prompt will retry on the next invocation. If `Action line:` has content but the post still doesn't appear, check the API response logged after it.
 
-```bash
-aws secretsmanager describe-secret --secret-id moltbook/api-key --region us-east-1
-```
+**Verification challenges failing**
+Look for `Computed answer:` in the logs. If the raw Claude response contains non-numeric text, the regex extraction may have failed. The math-solver prompt is in `solve_verification()` in `heartbeat.py`.
 
-If not found, create it:
+**News monitor sends 0 items**
+All current feed items have already been processed and stored in DynamoDB. New emails will arrive automatically when AWS publishes new announcements.
 
-```bash
-aws secretsmanager create-secret \
-  --name moltbook/api-key \
-  --secret-string '{"api_key":"YOUR_API_KEY"}' \
-  --region us-east-1
-```
-
-### Lambda Function Fails with Permission Errors
-
-Check that the Lambda execution role has the required permissions:
-
-```bash
-aws iam get-role --role-name moltbook-lambda-role
-aws iam list-role-policies --role-name moltbook-lambda-role
-```
-
-### Bedrock Agent Not Responding
-
-1. Check agent status:
-   ```bash
-   aws bedrock-agent get-agent --agent-id YOUR_AGENT_ID --region us-east-1
-   ```
-
-2. Verify agent is in "PREPARED" status
-
-3. Check CloudWatch logs for errors
-
-### Verification Challenges Failing
-
-The agent uses Bedrock Claude to solve Moltbook's verification challenges. If challenges fail:
-
-1. Check CloudWatch logs for the challenge text and attempted answer
-2. Verify Bedrock InvokeModel permission is granted
-3. Ensure Claude Sonnet model is available in your region
-
-### Heartbeat Not Creating Posts
-
-Check the heartbeat Lambda logs to see why posts aren't being created:
-
-- Claim status may not be "active"
-- Less than 30 minutes since last post
-- Rate limit safety check triggered
-
-## Development
-
-### Local Testing
-
-For local development, set environment variables:
-
-```bash
-export MOLTBOOK_API_KEY=your_api_key
-export BEDROCK_AGENT_ID=your_agent_id
-export BEDROCK_AGENT_ALIAS_ID=your_alias_id
-```
-
-Test the Lambda handler locally:
-
-```python
-from lambda.moltbook_handler import lambda_handler
-
-event = {
-    "actionGroup": "moltbook-actions",
-    "apiPath": "/status",
-    "httpMethod": "GET",
-    "parameters": []
-}
-
-result = lambda_handler(event, None)
-print(result)
-```
-
-### Running Tests
-
-Property-based tests are available in the `tests/` directory:
-
-```bash
-pip install -r requirements-test.txt
-pytest tests/
-```
+**answer must be a string error**
+The verification answer must be submitted as a string like `"50.00"`, not a float. See `solve_verification()` in `heartbeat.py`.
 
 ## Cleanup
 
-To remove all deployed resources:
-
 ```bash
-# Delete EventBridge rule
+# EventBridge rules
 aws events remove-targets --rule moltbook-heartbeat --ids 1 --region us-east-1
 aws events delete-rule --name moltbook-heartbeat --region us-east-1
+aws events remove-targets --rule moltbook-news-monitor --ids 1 --region us-east-1
+aws events delete-rule --name moltbook-news-monitor --region us-east-1
 
-# Delete Lambda functions
+# Lambda functions
 aws lambda delete-function --function-name moltbook-handler --region us-east-1
 aws lambda delete-function --function-name moltbook-heartbeat --region us-east-1
+aws lambda delete-function --function-name moltbook-news-monitor --region us-east-1
 
-# Delete Bedrock agent
+# Bedrock agent (get ID from deploy output)
 aws bedrock-agent delete-agent --agent-id YOUR_AGENT_ID --region us-east-1
 
-# Delete IAM roles
+# IAM role
 aws iam delete-role-policy --role-name moltbook-lambda-role --policy-name SecretsManagerAccess
 aws iam delete-role-policy --role-name moltbook-lambda-role --policy-name BedrockInvokeModel
+aws iam delete-role-policy --role-name moltbook-lambda-role --policy-name DynamoDBAccess
+aws iam delete-role-policy --role-name moltbook-lambda-role --policy-name SESAccess
 aws iam detach-role-policy --role-name moltbook-lambda-role --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 aws iam delete-role --role-name moltbook-lambda-role
 
-# Delete S3 bucket (empty it first)
+# DynamoDB tables
+aws dynamodb delete-table --table-name aws-news-tracker --region us-east-1
+aws dynamodb delete-table --table-name moltbook-context --region us-east-1
+
+# S3 bucket
 aws s3 rm s3://techreformers-moltbook-deployment --recursive
 aws s3 rb s3://techreformers-moltbook-deployment
 
-# Optionally delete the secret
-aws secretsmanager delete-secret --secret-id moltbook/api-key --force-delete-without-recovery --region us-east-1
+# Secrets Manager
+aws secretsmanager delete-secret \
+  --secret-id moltbook/api-key \
+  --force-delete-without-recovery \
+  --region us-east-1
 ```
 
 ## License
 
-Copyright © 2024 Tech Reformers LLC. All rights reserved.
-
-## Support
-
-For issues or questions:
-- Check the troubleshooting section above
-- Review CloudWatch logs for error details
-- Contact Tech Reformers support
-
-## Resources
-
-- [Moltbook](https://www.moltbook.com) - AI agent social network
-- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
-- [Tech Reformers](https://www.techreformers.com) - AWS Advanced Services Partner
+Copyright © 2026 Tech Reformers LLC. All rights reserved.
