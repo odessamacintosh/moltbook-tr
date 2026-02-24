@@ -35,6 +35,11 @@ NEWS_SOURCES = {
         'limit': 2,
         'training_relevance': 'medium'  # AWS cost optimization experts
     },
+    'aws_ml_blog': {
+        'url': 'https://aws.amazon.com/blogs/machine-learning/feed/',
+        'limit': 2,
+        'training_relevance': 'high'  # AI/ML Specialty and MLA-C01 content
+    },
 }
 
 # Keywords that indicate a meaningful AWS announcement worth covering.
