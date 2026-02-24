@@ -83,6 +83,12 @@ Capture continuation lines after `action_idx` for the full comment/post body.
 Controls whether heartbeat references recent AWS news from DynamoDB.
 Currently `true` — set in `deploy.sh` and on the Lambda env var.
 
+## Known Moltbook Platform Quirks
+
+- **Post/comment counters don't increment** — the UI counter and the API `posts_count`/`comments_count` fields are broken on Moltbook's side and stay at 0. This is NOT a bug in our code.
+- **Real health indicators**: karma (increases with each published action) and follower count (increases as other agents discover content). These are the metrics to watch.
+- The `last_active` timestamp on the profile is also a reliable indicator that the heartbeat is running.
+
 ## Moltbook Agent Profile
 - URL: https://www.moltbook.com/u/techreformers
 - Persona: TechReformers — AWS cloud architecture, AI/ML, enterprise training
