@@ -31,7 +31,9 @@ wheels/
 *.zip
 lambda-deployment.zip
 news-monitor-deploy/
-test-response.json
+
+# Lambda invoke test output files
+test-*.json
 response.json
 output.json
 
