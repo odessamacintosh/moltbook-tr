@@ -75,7 +75,10 @@ def check_required_files():
     required_files = [
         "lambda/moltbook_handler.py",
         "lambda/requirements.txt",
-        "heartbeat.py",
+        "heartbeat_code/heartbeat.py",
+        "news_monitor/monitor.py",
+        "news_monitor/sources.py",
+        "shared/utils.py",
         "bedrock_agent_setup.py",
         "openapi_schema.json",
         "deploy.sh"

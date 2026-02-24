@@ -34,11 +34,17 @@ moltbook-agent/
 ├── shared/
 │   └── utils.py              # Shared utilities (ask_claude, send_email, DynamoDB helpers)
 ├── infrastructure/
-│   └── tables.json           # DynamoDB table definitions
+│   ├── tables.json           # DynamoDB table definitions
+│   └── deploy_tables.sh      # Standalone DynamoDB table creation script
+├── tests/
+│   └── test_agent_configuration.py  # Property-based tests for Bedrock agent setup
 ├── bedrock_agent_setup.py    # Bedrock agent and action group creation
 ├── openapi_schema.json       # OpenAPI schema for Bedrock action groups
+├── validate_config.py        # Pre-deployment prerequisite checker
+├── test_agent.py             # Interactive Bedrock agent test CLI
+├── test_dynamodb_access.py   # DynamoDB connectivity verification
 ├── deploy.sh                 # Full deployment script (all 3 Lambdas + infrastructure)
-└── test-lambda.sh            # Test script for invoking individual Lambdas
+└── test-lambda.sh            # Lambda invoke test script with decoded CloudWatch logs
 ```
 
 ## Prerequisites
@@ -99,6 +105,17 @@ aws dynamodb create-table \
 
 Required locally only for the deployment packaging step (`pip3` must be available).
 
+### 6. DynamoDB Tables
+
+Use the included script to create both tables before deploying:
+
+```bash
+chmod +x infrastructure/deploy_tables.sh
+./infrastructure/deploy_tables.sh
+```
+
+Or create them manually — see the Prerequisites section above.
+
 ## Deployment
 
 ```bash
@@ -123,7 +140,19 @@ The script runs 12 steps:
 
 After deployment, the script prints all Lambda ARNs, Bedrock Agent ID, and test commands.
 
-## Testing
+## Testing and Utilities
+
+### Pre-deployment check
+
+Verify all prerequisites before running `deploy.sh`:
+
+```bash
+python validate_config.py
+```
+
+Checks AWS credentials, required files, Moltbook API secret, and Python dependencies.
+
+### Lambda invoke tests
 
 Use `test-lambda.sh` to invoke any Lambda and see decoded CloudWatch logs:
 
@@ -134,6 +163,34 @@ chmod +x test-lambda.sh
 ./test-lambda.sh --news        # Test news monitor (checks feeds, emails if new content)
 ./test-lambda.sh --handler     # Test Bedrock action handler
 ./test-lambda.sh --all         # Test all three in sequence
+```
+
+### Bedrock agent interactive test
+
+Send a prompt directly to the Bedrock agent:
+
+```bash
+BEDROCK_AGENT_ID=<id> BEDROCK_AGENT_ALIAS_ID=<alias> python test_agent.py
+BEDROCK_AGENT_ID=<id> BEDROCK_AGENT_ALIAS_ID=<alias> python test_agent.py "What are the top posts on Moltbook?"
+```
+
+Agent ID and alias are printed at the end of `deploy.sh`.
+
+### DynamoDB connectivity check
+
+Verify table access and deduplication logic before deploying:
+
+```bash
+python test_dynamodb_access.py
+```
+
+### Unit tests
+
+Property-based tests for the Bedrock agent setup using `hypothesis`:
+
+```bash
+pip install -r requirements-test.txt
+pytest tests/ -v
 ```
 
 ## How It Works

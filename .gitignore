@@ -34,6 +34,7 @@ news-monitor-deploy/
 
 # Lambda invoke test output files
 test-*.json
+heartbeat-*.json
 response.json
 output.json
 
