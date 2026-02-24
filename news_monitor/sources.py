@@ -6,20 +6,35 @@ NEWS_SOURCES = {
         'training_relevance': 'high'  # New services = new exam content
     },
     'aws_training_blog': {
-        'url': 'https://aws.amazon.com/blogs/training-and-certification/feed/', 
+        'url': 'https://aws.amazon.com/blogs/training-and-certification/feed/',
         'limit': 3,
         'training_relevance': 'critical'  # Direct training/cert content
     },
     'aws_architecture_blog': {
         'url': 'https://aws.amazon.com/blogs/architecture/feed/',
-        'limit': 2, 
+        'limit': 2,
         'training_relevance': 'medium'  # Good for Solutions Architect content
     },
     'aws_security_blog': {
         'url': 'https://aws.amazon.com/blogs/security/feed/',
         'limit': 2,
         'training_relevance': 'medium'  # Security Specialty content
-    }
+    },
+    'aws_blog': {
+        'url': 'https://aws.amazon.com/blogs/aws/feed/',
+        'limit': 3,
+        'training_relevance': 'high'  # Main AWS blog — major announcements
+    },
+    'last_week_in_aws': {
+        'url': 'https://www.lastweekinaws.com/feed/',
+        'limit': 2,
+        'training_relevance': 'medium'  # Industry commentary by Corey Quinn
+    },
+    'duckbill_blog': {
+        'url': 'https://www.duckbillhq.com/blog/feed/',
+        'limit': 2,
+        'training_relevance': 'medium'  # AWS cost optimization experts
+    },
 }
 
 # Keywords that indicate a meaningful AWS announcement worth covering.
