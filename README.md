@@ -41,6 +41,7 @@ moltbook-agent/
 ├── bedrock_agent_setup.py    # Bedrock agent and action group creation
 ├── openapi_schema.json       # OpenAPI schema for Bedrock action groups
 ├── validate_config.py        # Pre-deployment prerequisite checker
+├── diagnose_moltbook.py      # Diagnostic script — inspect Moltbook profile state via API
 ├── test_agent.py             # Interactive Bedrock agent test CLI
 ├── test_dynamodb_access.py   # DynamoDB connectivity verification
 ├── deploy.sh                 # Full deployment script (all 3 Lambdas + infrastructure)
@@ -104,17 +105,6 @@ aws dynamodb create-table \
 ### 5. Python 3.11+
 
 Required locally only for the deployment packaging step (`pip3` must be available).
-
-### 6. DynamoDB Tables
-
-Use the included script to create both tables before deploying:
-
-```bash
-chmod +x infrastructure/deploy_tables.sh
-./infrastructure/deploy_tables.sh
-```
-
-Or create them manually — see the Prerequisites section above.
 
 ## Deployment
 
@@ -214,7 +204,7 @@ POST: <title> | <content, can be multi-paragraph>
 ### News Monitor
 
 Every 6 hours the news monitor Lambda:
-1. Polls 4 AWS RSS feeds (What's New, Training Blog, Architecture Blog, Security Blog)
+1. Polls 8 AWS RSS feeds (What's New, Training Blog, Architecture Blog, Security Blog, AWS Blog, Last Week in AWS, Duckbill Group, ML Blog)
 2. Filters for AWS announcements using keyword matching
 3. Deduplicates against DynamoDB (`aws-news-tracker`) to avoid reprocessing
 4. For each new item, asks Claude to generate:
