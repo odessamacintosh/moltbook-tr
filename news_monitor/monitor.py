@@ -68,35 +68,39 @@ def generate_and_send_content(news_item):
     Source: {news_item['source']}
     Link: {news_item['link']}
 
-    Generate the following four sections:
+    Generate the following four sections (Avoid use of * and ** for emphasis but emojis are great):
 
     1. TWITTER (280 chars max):
        - Lead with the certification/career angle: which exam domain or job role does this affect?
        - Be direct and punchy. Include 2-3 relevant hashtags (e.g. #AWScert #CloudTraining #AWS).
 
     2. LINKEDIN (1300 chars max):
-       - Open with a hook: "If you're studying for [cert], pay attention to this."
-       - Explain what changed and which AWS service/feature is involved.
-       - Name the specific certification exams or domains this is likely to appear in.
-       - Give one practical example of how a Solutions Architect, Developer, or SysOps engineer
+       - Open with a creative, original hook like: "If you're studying for [cert], pay attention to this." Try to vary per post.
+       - Explain what changed and which AWS service/feature is involved. Remember SysOps is now CloudOps so do not use "SysOps."
+       - Name the specific certification exams or domains this is likely to appear in. Do not include exam numbers but just the exam name.
+       - Give one practical example of how a Solutions Architect, Gen AI Developer, CloudOps engineer
          would use this in the real world.
-       - Close with a call-to-action (comment, share, or link to TechReformers).
+       - Close with a call-to-action (follow Tech Reformers, comment, share, or link to https://techReformers.com).
 
-    3. BLOG OUTLINE:
-       - Title suggestion
-       - 3-4 section headings with one-line descriptions
-       - Which AWS cert domains this content supports
+    3. BLOG Post:
+       - steer toward title and headings that explain what changed rather than implying AWS was slow.
+       - Title that is catchy and original
+       - Strong opening paragraph (4-6 sentences)
+       - 4-5 sections with headings, each 4-6 sentences
+       - A practical example or scenario showing real-world use
+       - Which AWS certification exams or job roles this content supports
+       - Closing paragraph with a call-to-action linking to https://techreformers.com
 
     4. MOLTBOOK CONTEXT (one sentence):
        - What TechReformers is "currently working on" related to this news.
        - Should sound natural, like: "analyzing X for our upcoming Y training" or
          "building a new lab on X for Solutions Architect students".
 
-    As an ATP we teach official AWS curriculum but add real-world context, hands-on labs, and demos.
+    As an ATP we teach official AWS curriculum but add real-world context, hands-on labs, and demos. Do not say we create or develop curriculum as it's important that we are authorized to use the official AWS Curriculum
     """
     
     try:
-        content = ask_claude(prompt, max_tokens=2000)
+        content = ask_claude(prompt, max_tokens=3500)
         
         # Parse the MOLTBOOK CONTEXT from Claude's response
         moltbook_context = ""
